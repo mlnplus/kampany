@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- QR Code Scanner Library -->
   <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- QR Code Generator Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
@@ -68,6 +70,10 @@
       border-top: 1px solid #4fd1c5;
       margin: 18px 0;
     }
+    .qrcode-container {
+      margin-top: 10px;
+      text-align: center;
+    }
     @media (max-width: 500px) {
       .container { padding: 16px 4px; }
       h2 { font-size: 1.2em; }
@@ -100,6 +106,12 @@
         <div id="admin-user-info"></div>
         <input type="number" id="new-balance" placeholder="New balance">
         <button onclick="updateBalance()">Update Balance</button>
+        
+        <div class="qrcode-container" id="admin-qrcode-section" style="display:none;">
+          <h4>QR Code for this User</h4>
+          <div id="admin-qrcode"></div>
+          <div id="admin-qrcode-link" style="margin-top:8px; font-size:0.95em;"></div>
+        </div>
         
         <hr>
         <h4>Create New User</h4>
@@ -172,9 +184,12 @@
         info.innerHTML = `<b>User:</b> ${code}<br><b>Current Balance:</b> ${users[code].balance}`;
         document.getElementById('new-balance').value = users[code].balance;
         info.dataset.user = code;
+        // Show QR code section
+        showAdminQrCode(code);
       } else {
         info.innerHTML = `<span style="color:#f87171;">User not found.</span>`;
         info.dataset.user = '';
+        hideAdminQrCode();
       }
     }
 
@@ -235,7 +250,24 @@
         <b>Code:</b> <span style="color:#4fd1c5;font-size:1.2em">${code}</span><br>
         <b>Balance:</b> ${users[code].balance}<br>
         <button onclick="copyToClipboard('${code}')">Copy Code</button>
+        <button onclick="generateQrForNewUser('${code}')">Show QR Code</button>
+        <div id="new-user-qrcode" style="margin-top:10px;"></div>
         <br><small>Use this code or turn it into a QR code for the player.</small>`;
+    }
+
+    function generateQrForNewUser(code) {
+      const url = getUserQrUrl(code);
+      const qrDiv = document.getElementById('new-user-qrcode');
+      qrDiv.innerHTML = "";
+      new QRCode(qrDiv, {
+        text: url,
+        width: 150,
+        height: 150,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      qrDiv.innerHTML += `<div style="margin-top:8px;word-break:break-all;"><a href="${url}" target="_blank" style="color:#4fd1c5;">${url}</a></div>`;
     }
 
     // --- COPY TO CLIPBOARD ---
@@ -254,6 +286,53 @@
         alert("User code copied to clipboard!");
       }
     }
+
+    // --- QR CODE GENERATION FOR ADMIN PANEL ---
+    function getUserQrUrl(code) {
+      // Change this to your real site URL when deployed!
+      const baseUrl = window.location.origin + window.location.pathname;
+      return `${baseUrl}?id=${encodeURIComponent(code)}`;
+    }
+
+    function showAdminQrCode(code) {
+      const qrSection = document.getElementById('admin-qrcode-section');
+      const qrDiv = document.getElementById('admin-qrcode');
+      const qrLink = document.getElementById('admin-qrcode-link');
+      qrSection.style.display = 'block';
+      qrDiv.innerHTML = "";
+      const url = getUserQrUrl(code);
+      new QRCode(qrDiv, {
+        text: url,
+        width: 150,
+        height: 150,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      qrLink.innerHTML = `<a href="${url}" target="_blank" style="color:#4fd1c5;">${url}</a>`;
+    }
+
+    function hideAdminQrCode() {
+      document.getElementById('admin-qrcode-section').style.display = 'none';
+      document.getElementById('admin-qrcode').innerHTML = "";
+      document.getElementById('admin-qrcode-link').innerHTML = "";
+    }
+
+    // --- AUTO SHOW BALANCE IF id PARAMETER IN URL ---
+    function getUrlParameter(name) {
+      name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+      const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+      const results = regex.exec(location.search);
+      return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
+    window.onload = function() {
+      const codeFromUrl = getUrlParameter('id');
+      if (codeFromUrl) {
+        document.getElementById('user-code-input').value = codeFromUrl;
+        findUser(codeFromUrl);
+      }
+    };
   </script>
 </body>
 </html>
