@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <title>Game Money System</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- QR Code Scanner Library -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
   <!-- QR Code Generator Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
@@ -18,7 +16,7 @@
       min-height: 100vh;
     }
     .container {
-      max-width: 400px;
+      max-width: 420px;
       margin: 40px auto;
       background: rgba(0,0,0,0.7);
       border-radius: 18px;
@@ -58,21 +56,14 @@
       border-radius: 10px;
       margin-top: 24px;
     }
-    #reader, #admin-reader {
-      margin: 0 auto 20px auto;
-      width: 100%;
-      min-height: 260px;
-      background: #222;
-      border-radius: 10px;
-    }
     hr {
       border: none;
       border-top: 1px solid #4fd1c5;
       margin: 18px 0;
     }
-    .qrcode-container {
-      margin-top: 10px;
+    .qrcode {
       text-align: center;
+      margin: 16px 0;
     }
     @media (max-width: 500px) {
       .container { padding: 16px 4px; }
@@ -81,258 +72,126 @@
   </style>
 </head>
 <body>
-  <div class="container" id="main-container">
-    <h2>Game Money System</h2>
-    <div id="user-section">
-      <input type="text" id="user-code-input" placeholder="Enter your code">
-      <button onclick="findUser()">Check Balance</button>
-      <button onclick="startScan()">Scan QR Code</button>
-      <div id="reader" style="display:none"></div>
-      <div id="balance-display" style="margin-top:20px;"></div>
-    </div>
-    <div style="text-align:center; margin-top:24px;">
-      <button class="btn" onclick="toggleAdmin()">Admin Mode</button>
-    </div>
-    <div id="admin-section" class="admin-section" style="display:none;">
-      <h3>Admin Panel</h3>
-      <input type="password" id="admin-pass" placeholder="Enter admin password">
-      <button onclick="adminLogin()">Login</button>
-      <div id="admin-controls" style="display:none;">
-        <h4>Edit User Balance</h4>
-        <input type="text" id="admin-user-code" placeholder="User code to edit">
-        <button onclick="adminFindUser()">Find User</button>
-        <button onclick="startAdminScan()">Scan QR Code</button>
-        <div id="admin-reader" style="display:none"></div>
-        <div id="admin-user-info"></div>
-        <input type="number" id="new-balance" placeholder="New balance">
-        <button onclick="updateBalance()">Update Balance</button>
-        
-        <div class="qrcode-container" id="admin-qrcode-section" style="display:none;">
-          <h4>QR Code for this User</h4>
-          <div id="admin-qrcode"></div>
-          <div id="admin-qrcode-link" style="margin-top:8px; font-size:0.95em;"></div>
-        </div>
-        
-        <hr>
-        <h4>Create New User</h4>
-        <button onclick="generateNewUser()">Generate New User</button>
-        <div id="new-user-info" style="margin-top:12px;"></div>
-      </div>
-    </div>
+<div class="container">
+  <h2>Game Money System</h2>
+  <input type="text" id="user-code" placeholder="Enter user code">
+  <button onclick="showBalance()">Check Balance</button>
+  <div id="balance"></div>
+  <hr>
+  <h3>Admin Panel</h3>
+  <input type="password" id="admin-pass" placeholder="Admin password">
+  <button onclick="adminLogin()">Login</button>
+  <div id="admin-section" style="display:none;">
+    <input type="text" id="admin-user" placeholder="User code">
+    <input type="number" id="admin-balance" placeholder="New balance">
+    <button onclick="editBalance()">Set Balance</button>
+    <button onclick="generateQR()">Generate QR</button>
+    <div class="qrcode" id="qrcode"></div>
+    <hr>
+    <h4>Create New User</h4>
+    <button onclick="generateNewUser()">Generate New User</button>
+    <div id="new-user-info" style="margin-top:12px;"></div>
+    <div class="qrcode" id="new-user-qrcode"></div>
   </div>
-  <script>
-    // --- DEMO DATA ---
-    const users = {
-      "user123": { balance: 100 },
-      "alice": { balance: 250 },
-      "bob": { balance: 75 }
-    };
-    const ADMIN_PASSWORD = "admin123"; // Change this to your desired admin password
+</div>
+<script>
+const users = { "alice": {balance: 100}, "bob": {balance: 200}, "user123": {balance: 50} };
+const ADMIN_PASSWORD = "admin123";
 
-    // --- USER MODE ---
-    function findUser(code) {
-      code = code || document.getElementById('user-code-input').value.trim();
-      const display = document.getElementById('balance-display');
-      if (users[code]) {
-        display.innerHTML = `<b>Balance for <span style="color:#4fd1c5">${code}</span>: <span style="font-size:1.2em;">${users[code].balance}</span> coins</b>`;
-      } else {
-        display.innerHTML = `<span style="color:#f87171;">User not found.</span>`;
-      }
-    }
+// Show balance for entered code
+function showBalance() {
+  const code = document.getElementById('user-code').value.trim();
+  const bal = users[code] ? users[code].balance : null;
+  document.getElementById('balance').innerHTML = bal !== null ?
+    `<b>Balance for ${code}: ${bal}</b>` : `<span style="color:#f87171;">User not found.</span>`;
+}
 
-    // --- QR SCAN FOR USER ---
-    let scanner = null;
-    function startScan() {
-      document.getElementById('reader').style.display = 'block';
-      if (!scanner) {
-        scanner = new Html5Qrcode("reader");
-      }
-      scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 200 },
-        (decodedText) => {
-          document.getElementById('user-code-input').value = decodedText;
-          scanner.stop().then(() => {
-            document.getElementById('reader').style.display = 'none';
-            findUser(decodedText);
-          });
-        }
-      );
-    }
+// Admin login
+function adminLogin() {
+  if (document.getElementById('admin-pass').value === ADMIN_PASSWORD) {
+    document.getElementById('admin-section').style.display = 'block';
+  } else {
+    alert("Wrong password");
+  }
+}
 
-    // --- ADMIN MODE TOGGLE ---
-    function toggleAdmin() {
-      const adminSection = document.getElementById('admin-section');
-      adminSection.style.display = adminSection.style.display === 'none' ? 'block' : 'none';
-    }
+// Admin: edit balance
+function editBalance() {
+  const code = document.getElementById('admin-user').value.trim();
+  const bal = parseInt(document.getElementById('admin-balance').value, 10);
+  if (users[code]) {
+    users[code].balance = bal;
+    alert("Balance updated (will reset on reload)!");
+  } else {
+    alert("User not found");
+  }
+}
 
-    // --- ADMIN LOGIN ---
-    function adminLogin() {
-      const pass = document.getElementById('admin-pass').value;
-      if (pass === ADMIN_PASSWORD) {
-        document.getElementById('admin-controls').style.display = 'block';
-      } else {
-        alert('Incorrect password');
-      }
-    }
+// Admin: generate QR for user
+function generateQR() {
+  const code = document.getElementById('admin-user').value.trim();
+  if (!users[code]) {
+    alert("User not found");
+    return;
+  }
+  const url = window.location.origin + window.location.pathname + "?id=" + encodeURIComponent(code);
+  document.getElementById('qrcode').innerHTML = "";
+  new QRCode(document.getElementById('qrcode'), url);
+  document.getElementById('qrcode').innerHTML += `<div style="margin-top:8px;word-break:break-all;"><a href="${url}" target="_blank" style="color:#4fd1c5;">${url}</a></div>`;
+}
 
-    // --- ADMIN FIND USER ---
-    function adminFindUser(code) {
-      code = code || document.getElementById('admin-user-code').value.trim();
-      const info = document.getElementById('admin-user-info');
-      if (users[code]) {
-        info.innerHTML = `<b>User:</b> ${code}<br><b>Current Balance:</b> ${users[code].balance}`;
-        document.getElementById('new-balance').value = users[code].balance;
-        info.dataset.user = code;
-        // Show QR code section
-        showAdminQrCode(code);
-      } else {
-        info.innerHTML = `<span style="color:#f87171;">User not found.</span>`;
-        info.dataset.user = '';
-        hideAdminQrCode();
-      }
-    }
+// Admin: generate new user
+function generateNewUser() {
+  let code;
+  do {
+    code = Math.random().toString(36).substr(2, 6);
+  } while (users[code]);
+  users[code] = { balance: 100 };
+  document.getElementById('new-user-info').innerHTML =
+    `<b>New User Created!</b><br>
+     <b>Code:</b> <span style="color:#4fd1c5;font-size:1.2em">${code}</span><br>
+     <b>Balance:</b> ${users[code].balance}<br>
+     <button onclick="copyToClipboard('${code}')">Copy Code</button>`;
+  generateNewUserQR(code);
+}
 
-    // --- QR SCAN FOR ADMIN ---
-    let adminScanner = null;
-    function startAdminScan() {
-      document.getElementById('admin-reader').style.display = 'block';
-      if (!adminScanner) {
-        adminScanner = new Html5Qrcode("admin-reader");
-      }
-      adminScanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 200 },
-        (decodedText) => {
-          document.getElementById('admin-user-code').value = decodedText;
-          adminScanner.stop().then(() => {
-            document.getElementById('admin-reader').style.display = 'none';
-            adminFindUser(decodedText);
-          });
-        }
-      );
-    }
+// Admin: generate QR for new user
+function generateNewUserQR(code) {
+  const url = window.location.origin + window.location.pathname + "?id=" + encodeURIComponent(code);
+  const qrDiv = document.getElementById('new-user-qrcode');
+  qrDiv.innerHTML = "";
+  new QRCode(qrDiv, url);
+  qrDiv.innerHTML += `<div style="margin-top:8px;word-break:break-all;"><a href="${url}" target="_blank" style="color:#4fd1c5;">${url}</a></div>`;
+}
 
-    // --- ADMIN UPDATE BALANCE ---
-    function updateBalance() {
-      const code = document.getElementById('admin-user-info').dataset.user;
-      const newBal = parseInt(document.getElementById('new-balance').value, 10);
-      if (code && users[code]) {
-        users[code].balance = newBal;
-        alert('Balance updated!');
-        adminFindUser(code);
-      } else {
-        alert('User not selected.');
-      }
-    }
+// Copy code to clipboard
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+    alert("User code copied to clipboard!");
+  } else {
+    const tempInput = document.createElement("input");
+    tempInput.value = text;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand("copy");
+    document.body.removeChild(tempInput);
+    alert("User code copied to clipboard!");
+  }
+}
 
-    // --- GENERATE NEW USER ---
-    function createRandomUserCode(length = 6) {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-      let result = "";
-      for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return result;
-    }
-
-    function generateNewUser() {
-      let code;
-      // Ensure the new code is unique
-      do {
-        code = createRandomUserCode(6);
-      } while (users[code]);
-      // Set default balance (e.g., 100)
-      users[code] = { balance: 100 };
-      // Show the new user info
-      document.getElementById('new-user-info').innerHTML =
-        `<b>New User Created!</b><br>
-        <b>Code:</b> <span style="color:#4fd1c5;font-size:1.2em">${code}</span><br>
-        <b>Balance:</b> ${users[code].balance}<br>
-        <button onclick="copyToClipboard('${code}')">Copy Code</button>
-        <button onclick="generateQrForNewUser('${code}')">Show QR Code</button>
-        <div id="new-user-qrcode" style="margin-top:10px;"></div>
-        <br><small>Use this code or turn it into a QR code for the player.</small>`;
-    }
-
-    function generateQrForNewUser(code) {
-      const url = getUserQrUrl(code);
-      const qrDiv = document.getElementById('new-user-qrcode');
-      qrDiv.innerHTML = "";
-      new QRCode(qrDiv, {
-        text: url,
-        width: 150,
-        height: 150,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H
-      });
-      qrDiv.innerHTML += `<div style="margin-top:8px;word-break:break-all;"><a href="${url}" target="_blank" style="color:#4fd1c5;">${url}</a></div>`;
-    }
-
-    // --- COPY TO CLIPBOARD ---
-    function copyToClipboard(text) {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(text);
-        alert("User code copied to clipboard!");
-      } else {
-        // Fallback for older browsers
-        const tempInput = document.createElement("input");
-        tempInput.value = text;
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand("copy");
-        document.body.removeChild(tempInput);
-        alert("User code copied to clipboard!");
-      }
-    }
-
-    // --- QR CODE GENERATION FOR ADMIN PANEL ---
-    function getUserQrUrl(code) {
-      // Change this to your real site URL when deployed!
-      const baseUrl = window.location.origin + window.location.pathname;
-      return `${baseUrl}?id=${encodeURIComponent(code)}`;
-    }
-
-    function showAdminQrCode(code) {
-      const qrSection = document.getElementById('admin-qrcode-section');
-      const qrDiv = document.getElementById('admin-qrcode');
-      const qrLink = document.getElementById('admin-qrcode-link');
-      qrSection.style.display = 'block';
-      qrDiv.innerHTML = "";
-      const url = getUserQrUrl(code);
-      new QRCode(qrDiv, {
-        text: url,
-        width: 150,
-        height: 150,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H
-      });
-      qrLink.innerHTML = `<a href="${url}" target="_blank" style="color:#4fd1c5;">${url}</a>`;
-    }
-
-    function hideAdminQrCode() {
-      document.getElementById('admin-qrcode-section').style.display = 'none';
-      document.getElementById('admin-qrcode').innerHTML = "";
-      document.getElementById('admin-qrcode-link').innerHTML = "";
-    }
-
-    // --- AUTO SHOW BALANCE IF id PARAMETER IN URL ---
-    function getUrlParameter(name) {
-      name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-      const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-      const results = regex.exec(location.search);
-      return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-    }
-
-    window.onload = function() {
-      const codeFromUrl = getUrlParameter('id');
-      if (codeFromUrl) {
-        document.getElementById('user-code-input').value = codeFromUrl;
-        findUser(codeFromUrl);
-      }
-    };
-  </script>
+// Auto-show balance if id parameter in URL
+function getUrlParam(name) {
+  const match = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+  return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+window.onload = function() {
+  const code = getUrlParam('id');
+  if (code) {
+    document.getElementById('user-code').value = code;
+    showBalance();
+  }
+};
+</script>
 </body>
 </html>
